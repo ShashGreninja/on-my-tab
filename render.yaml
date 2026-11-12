@@ -1,76 +1,17 @@
 services:
   - type: web
-    name: payment-access-mcp
+    name: on-my-tab-preview
     runtime: node
-    plan: starter
-    buildCommand: npm ci
-    startCommand: node src/serve.ts agent
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_VERSION
-        value: 24.18.0
-      - key: DATABASE_URL
-        sync: false
-      - key: CHECKOUT_ORIGIN
-        sync: false
-      - key: AGENT_KEYS
-        sync: false
-
-  - type: web
-    name: payment-access-checkout
-    runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: node src/serve.ts checkout
+    startCommand: node scripts/hosted-preview.ts
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: 24.18.0
-      - key: DATABASE_URL
-        sync: false
-      - key: PAYPAL_CLIENT_ID
-        sync: false
-      - key: PAYPAL_CLIENT_SECRET
-        sync: false
-      - key: PAYPAL_WEBHOOK_ID
-        sync: false
-      - key: RENDER_API_KEY
-        sync: false
-      - key: RENDER_WORKFLOW_SLUG
-        sync: false
-      - key: CHECKOUT_ORIGIN
-        sync: false
-      - key: HUMAN_KEYS
-        sync: false
+      - key: PREVIEW_AGENT_KEY
+        generateValue: true
+      - key: PREVIEW_APPROVAL_KEY
+        generateValue: true
       - key: APPROVAL_SESSION_SECRET
         generateValue: true
-
-  - type: workflow
-    name: payment-access-jobs
-    runtime: node
-    buildCommand: npm ci
-    startCommand: node src/workflows.ts
-    envVars:
-      - key: NODE_VERSION
-        value: 24.18.0
-      - key: DATABASE_URL
-        sync: false
-      - key: PAYPAL_CLIENT_ID
-        sync: false
-      - key: PAYPAL_CLIENT_SECRET
-        sync: false
-
-  - type: cron
-    name: payment-access-sweep
-    runtime: node
-    plan: starter
-    schedule: '*/2 * * * *'
-    buildCommand: npm ci
-    startCommand: node scripts/dispatch.ts
-    envVars:
-      - key: NODE_VERSION
-        value: 24.18.0
-      - key: RENDER_API_KEY
-        sync: false
-      - key: RENDER_WORKFLOW_SLUG
-        sync: false
