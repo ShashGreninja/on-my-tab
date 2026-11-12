@@ -1,6 +1,6 @@
 # ADR-001 — Keep PayPal checkout outside the agent harness
 
-Status: Selected for the sandbox prototype. Implementation and testing are pending.
+Status: Implemented for the sandbox prototype. The local simulated flow is tested. Hosted provider acceptance requires sandbox credentials.
 
 ## Decision
 
