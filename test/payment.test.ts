@@ -51,6 +51,11 @@ test('pending captures and mismatched terms never grant credits', async t => {
   const { store, request, provider, order, calls } = await fixture(t);
   order.status = 'CREATED';
   assert.equal(await reconcile(store, provider, request.id), 'pending');
+  order.status = 'COMPLETED';
+  order.captures = [{ id: 'CAPTURE-1', status: 'PENDING', total: '5.00', currency: 'USD' }];
+  assert.equal(await reconcile(store, provider, request.id), 'pending');
+  assert.equal(await store.balance('alice'), 0);
+  order.captures = [];
   order.status = 'APPROVED';
   order.total = '50.00';
   assert.equal(await reconcile(store, provider, request.id), 'review');
@@ -58,9 +63,35 @@ test('pending captures and mismatched terms never grant credits', async t => {
   assert.equal(await store.balance('alice'), 0);
 });
 
+test('a verified late capture can resolve a purchase held for review', async t => {
+  const { store, request, provider, order, calls } = await fixture(t);
+  await store.review(request.id);
+  assert.equal(await reconcile(store, provider, request.id), 'done');
+  assert.equal(calls(), 0);
+  order.status = 'COMPLETED';
+  order.captures = [{ id: 'CAPTURE-1', status: 'COMPLETED', total: '5.00', currency: 'USD' }];
+  await store.webhook('COMPLETE-1', 'ORDER-1', true);
+  assert.equal(await reconcile(store, provider, request.id), 'done');
+  assert.equal(await store.balance('alice'), 100);
+});
+
 test('a repeated request reuses an open purchase and webhook IDs are deduplicated', async t => {
   const { store, request } = await fixture(t);
   assert.equal((await store.request('alice', 'test-credits'))?.id, request.id);
   assert.equal(await store.webhook('EVENT-1', 'ORDER-1'), true);
   assert.equal(await store.webhook('EVENT-1', 'ORDER-1'), false);
+});
+
+test('a worker can recover an expired lease without accepting a stale release', async t => {
+  const { store, request } = await fixture(t);
+  const [first] = await store.claimJobs();
+  assert.equal(first.request_id, request.id);
+  assert.deepEqual(await store.claimJobs(), []);
+  await store.db.query("UPDATE payment_orders SET lease_until = now() - interval '1 second'");
+  const [replacement] = await store.claimJobs();
+  assert.notEqual(first.lease_token, replacement.lease_token);
+  await store.releaseJob(request.id, first.lease_token, false);
+  assert.deepEqual(await store.claimJobs(), []);
+  await store.releaseJob(request.id, replacement.lease_token, false);
+  assert.deepEqual(await store.claimJobs(), []);
 });

@@ -6,7 +6,7 @@ export const operationWindowMs = 5 * 60 * 60 * 1000;
 
 export async function reconcile(store: PaymentStore, provider: PayPal, id: string) {
   const payment = await store.payment(id);
-  if (!payment?.provider_order_id || payment.status === 'credits_available' || payment.status === 'needs_review') return 'done';
+  if (!payment?.provider_order_id || payment.status === 'credits_available') return 'done';
 
   const expected = formatUsd(payment.cents);
   const matches = (order: ProviderOrder) =>
@@ -20,7 +20,7 @@ export async function reconcile(store: PaymentStore, provider: PayPal, id: strin
   let order = await provider.getOrder(payment.provider_order_id);
   if (!matches(order)) return review();
 
-  if (order.status === 'APPROVED' && order.captures.length === 0) {
+  if (order.status === 'APPROVED' && order.captures.length === 0 && payment.status !== 'needs_review') {
     const started = await store.startCapture(id);
     if (!started || Date.now() - started.getTime() >= operationWindowMs) return review();
     await provider.captureOrder(order.id, id);
@@ -37,6 +37,8 @@ export async function reconcile(store: PaymentStore, provider: PayPal, id: strin
     return 'done';
   }
   if (capture && capture.status !== 'PENDING') return review();
+  if (payment.status === 'needs_review') return 'done';
+  if (capture?.status === 'PENDING') return 'pending';
   if (order.status === 'VOIDED' || Date.now() - payment.order_started_at.getTime() >= operationWindowMs) return review();
   return 'pending';
 }

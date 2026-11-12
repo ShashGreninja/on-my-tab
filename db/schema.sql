@@ -59,3 +59,12 @@ CREATE TABLE IF NOT EXISTS audit_events (
 );
 CREATE INDEX IF NOT EXISTS audit_by_purchase ON audit_events(request_id, occurred_at);
 CREATE INDEX IF NOT EXISTS pending_audit ON audit_events(occurred_at) WHERE indexed_at IS NULL;
+
+CREATE OR REPLACE FUNCTION consume_demo_credit(account text) RETURNS boolean
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
+  WITH consumed AS (
+    UPDATE public.balances SET credits = credits - 1
+    WHERE owner_id = account AND credits > 0 RETURNING 1
+  ) SELECT EXISTS (SELECT 1 FROM consumed);
+$$;
+REVOKE ALL ON FUNCTION consume_demo_credit(text) FROM PUBLIC;

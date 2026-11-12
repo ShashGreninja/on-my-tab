@@ -99,7 +99,7 @@ export class PaymentStore {
     if (!rows.length) throw new Error('provider order conflict');
   }
 
-  async webhook(event: string, order: string) {
+  async webhook(event: string, order: string, completed = false) {
     const { rows } = await this.db.query(`WITH received AS (
       INSERT INTO webhook_events(event_id)
       SELECT $1 WHERE EXISTS (SELECT 1 FROM payment_orders WHERE provider_order_id = $2)
@@ -107,8 +107,9 @@ export class PaymentStore {
     ), scheduled AS (
       UPDATE payment_orders o SET next_check_at = now()
       FROM purchases p WHERE p.id = o.request_id AND o.provider_order_id = $2
-      AND p.status IN ('approval_required','processing') AND EXISTS (SELECT 1 FROM received)
-    ) SELECT event_id FROM received`, [event, order]);
+      AND (p.status IN ('approval_required','processing') OR ($3 AND p.status = 'needs_review'))
+      AND EXISTS (SELECT 1 FROM received)
+    ) SELECT event_id FROM received`, [event, order, completed]);
     return rows.length > 0;
   }
 
@@ -119,12 +120,11 @@ export class PaymentStore {
   }
 
   async startCapture(id: string) {
-    const { rows } = await this.db.query<{ capture_started_at: Date }>(`WITH started AS (
-      UPDATE payment_orders SET capture_started_at = coalesce(capture_started_at, now())
-      WHERE request_id = $1 RETURNING capture_started_at
-    ), updated AS (
-      UPDATE purchases SET status = 'processing' WHERE id = $1 AND status = 'approval_required'
-    ) SELECT capture_started_at FROM started`, [id]);
+    const { rows } = await this.db.query<{ capture_started_at: Date }>(`WITH eligible AS (
+      UPDATE purchases SET status = 'processing' WHERE id = $1
+      AND status IN ('approval_required','processing') RETURNING id
+    ) UPDATE payment_orders SET capture_started_at = coalesce(capture_started_at, now())
+      FROM eligible WHERE request_id = eligible.id RETURNING capture_started_at`, [id]);
     return rows[0]?.capture_started_at;
   }
 
@@ -132,7 +132,7 @@ export class PaymentStore {
     await this.db.query(`WITH granted AS (
       INSERT INTO credit_grants(request_id, capture_id, credits)
       SELECT id, $2, credits FROM purchases
-      WHERE id = $1 AND status IN ('approval_required','processing')
+      WHERE id = $1 AND status IN ('approval_required','processing','needs_review')
       ON CONFLICT (request_id) DO NOTHING RETURNING request_id, credits
     ), credited AS (
       INSERT INTO balances(owner_id, credits)
@@ -159,10 +159,10 @@ export class PaymentStore {
   }
 
   async consume(owner: string) {
-    const { rows } = await this.db.query(
-      'UPDATE balances SET credits = credits - 1 WHERE owner_id = $1 AND credits > 0 RETURNING credits', [owner],
+    const { rows } = await this.db.query<{ consumed: boolean }>(
+      'SELECT consume_demo_credit($1) AS consumed', [owner],
     );
-    return rows.length > 0;
+    return rows[0].consumed;
   }
 
   async claimJobs(limit = 10) {
