@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: on-my-tab-preview
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node scripts/hosted-preview.ts
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: PREVIEW_AGENT_KEY
+        generateValue: true
+      - key: PREVIEW_APPROVAL_KEY
+        generateValue: true
+      - key: APPROVAL_SESSION_SECRET
+        generateValue: true

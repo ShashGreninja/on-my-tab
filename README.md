@@ -45,7 +45,13 @@ bearer_token_env_var = "PAYMENT_ACCESS_AGENT_KEY"
 
 Set the named environment variable to the local agent key, **local-demo-agent-only-key** by default. For the hosted sandbox use its HTTPS MCP URL and your provisioned agent key. Use a fresh demo account with zero credits and ask Codex to run the demo check. If it runs out of credits, it should request the test-credits offer and show the approval link. Approve from a phone or browser outside the harness, then tell Codex to check status and finish the task. Keep the approval key, PayPal credentials, and checkout browser session outside the harness. Run the scripted demo for repeat tests and use Codex for the recording.
 
-## Deploy the sandbox
+## Deploy a simulated preview
+
+Create a Render Blueprint using `render.preview.yaml`. It runs the dashboard and MCP on one free web service. Render generates separate keys for the approval page and MCP. In the service's **Environment** settings, use `PREVIEW_APPROVAL_KEY` to sign in as `demo` and `PREVIEW_AGENT_KEY` as the MCP bearer token. The dashboard is at `/audit` and the MCP endpoint is at `/mcp` on the same Render URL.
+
+To run the CLI against the hosted preview, set `MCP_URL` to the Render URL ending in `/mcp` and `LOCAL_AGENT_KEY` to the preview agent key. Then run `npm run demo:client`. The preview uses simulated payments and clears its data on restart.
+
+## Deploy the PayPal Sandbox stack
 
 The [architecture record](docs/decisions/001-payment-access-layer.md) describes the boundaries and failure cases.
 
