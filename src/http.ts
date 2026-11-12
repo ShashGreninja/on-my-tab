@@ -156,6 +156,9 @@ export function createCheckoutApp(config: {
   app.get('/assets/checkout.css', (_req, res) => {
     res.sendFile(fileURLToPath(new URL('./checkout.css', import.meta.url)));
   });
+  app.get('/assets/payment-ui.css', (_req, res) => {
+    res.sendFile(fileURLToPath(new URL('./payment-ui.css', import.meta.url)));
+  });
   app.post('/session', (req, res) => {
     if (!sameOrigin(req)) { res.sendStatus(403); return; }
     const { owner, key, next } = req.body ?? {};

@@ -40,6 +40,13 @@ try {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(approval_url);
+    assert.equal(await page.title(), 'Sign in | on my tab');
+    assert.equal(await page.locator('link[rel="icon"]').getAttribute('href'), '/assets/on-my-tab.svg');
+    const logo = page.getByRole('link', { name: 'on my tab', exact: true }).locator('img');
+    assert.equal(await logo.evaluate(async (image: HTMLImageElement) => {
+      await image.decode();
+      return image.naturalWidth > 0;
+    }), true);
     await page.getByLabel('Workspace account').fill('demo');
     await page.getByLabel('Approval key').fill('human-browser-test-key');
     const [login] = await Promise.all([
@@ -52,16 +59,34 @@ try {
     await page.getByRole('heading', { name: 'Credits available' }).waitFor();
     const status = await client.callTool({ name: 'get_purchase_status', arguments: { request_id } });
     assert.deepEqual(status.structuredContent, { request_id, status: 'credits_available' });
+    await page.goto(origin + '/audit');
+    assert.equal(await page.title(), 'Payment audit | on my tab');
+    await page.getByRole('link', { name: 'on my tab', exact: true }).waitFor();
+    const disclosure = page.getByRole('combobox', { name: 'Tool response' });
+    await disclosure.waitFor();
+    await page.getByRole('heading', { name: 'Purchase timeline' }).waitFor();
+    const completedResponse = await disclosure.inputValue();
+    await page.getByRole('button', { name: /Inspect agent response/, pressed: false }).click();
+    assert.notEqual(await disclosure.inputValue(), completedResponse);
+    await page.getByRole('code').filter({ hasText: 'approval_url' }).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+    await page.getByRole('button', { name: 'Open audit studio' }).click();
+    await page.getByRole('button', { name: 'Agent visibility' }).waitFor();
+    await page.getByRole('button', { name: 'Back to audit activity' }).click();
+    await disclosure.waitFor();
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(origin + '/audit');
     await page.getByRole('heading', { name: 'Purchase timeline' }).waitFor();
     await page.getByRole('heading', { name: 'What the agent saw' }).waitFor();
-    await page.getByText('Credits granted', { exact: true }).waitFor();
-    await page.locator('code').filter({ hasText: 'request_id' }).waitFor();
+    await page.getByRole('strong').filter({ hasText: 'Credits granted' }).waitFor();
+    await page.getByRole('code').filter({ hasText: 'request_id' }).waitFor();
+    const composer = await page.getByPlaceholder('Ask the AI Assistant...').boundingBox();
+    const studio = await page.locator('#audit-studio').boundingBox();
+    assert.ok(composer && studio && composer.y + composer.height <= studio.y + studio.height);
     await page.getByRole('button', { name: 'Agent visibility' }).click();
     await page.getByText('The latest agent response contained request_id, status.').waitFor();
     assert.deepEqual(errors, []);
-    console.log('Mobile checkout and desktop AG Studio audit passed in Chromium.');
+    console.log('Mobile checkout, responsive audit, and desktop AG Studio assistant passed in Chromium.');
   } finally { await browser.close(); }
 } finally {
   await client.close();
