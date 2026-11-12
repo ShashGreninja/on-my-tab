@@ -1,8 +1,10 @@
-# Payment Access
+# On My Tab
 
-A developer's coding agent can request a PayPal top-up when a paid tool runs out of credits. The developer reviews and approves the purchase in a separate browser session. The agent gets a purchase status and can resume its task after fulfillment. The sandbox demo sells 100 demo API credits for $5 in test money.
+Your coding agent hits an API quota halfway through a task. On My Tab lets it request a top-up over MCP. You review the purchase and approve it on PayPal. Once the server verifies the payment, the agent gets its credits and can retry the task.
 
-## Run without Codex or PayPal credentials
+The agent sees a request ID, an approval link, and a purchase status. PayPal credentials and payer details stay outside the agent's tools. The demo sells one pack of 100 API credits for $5 in test money. Each purchase requires your approval.
+
+## Try it locally
 
 Use Node.js 24.18+ and run:
 
@@ -17,18 +19,15 @@ In another terminal:
 npm run demo:client
 ```
 
-Open the approval link from the CLI. Sign in as **demo** with the local approval key **local-demo-human-only-key**. Continue to checkout, then choose **Simulate buyer approval**. Press Enter in the CLI to see the new credits unblock the check. Visit [the local audit dashboard](http://localhost:3000/audit) to see the timeline and the tool fields disclosed to the agent.
+Open the approval link from the CLI and sign in as `demo` with the key `local-demo-human-only-key`. Continue to checkout and choose **Simulate buyer approval**. Press Enter in the CLI to retry the blocked check. The [audit dashboard](http://localhost:3000/audit) shows the purchase timeline and the fields the agent received.
 
-This mode uses a simulated provider and a temporary PostgreSQL instance through PGlite. Restarting clears the demo. It binds to loopback. The simulated provider cannot charge anything.
+The local demo uses a simulated payment provider and a temporary PostgreSQL database. It needs no Codex subscription or PayPal credentials. Restarting clears the demo data.
 
-```sh
-npm run check
-npm test
-npm run build
-npm run test:browser
-```
+## How it works
 
-The tests use no model calls. The HTTP integration test opens two temporary loopback ports. PayPal adapter tests use injected provider responses. The suite also checks the PostgreSQL grants and a lost response after capture. The browser test uses installed Chrome by default. Set `PLAYWRIGHT_CHANNEL=msedge` for Edge.
+- **MCP** lets the agent request a known offer and check the result. A separate browser session handles buyer approval.
+- **PayPal** processes the sandbox payment. PostgreSQL records the capture and grants the credits in one transaction. If a response gets lost after capture, the worker checks the existing order before it retries.
+- **Render Workflows** runs payment reconciliation and audit indexing as separate jobs. **Elastic** indexes the approved audit fields, and **AG Studio** shows the purchase timeline and what the agent received.
 
 ## Run PayPal Sandbox
 
@@ -57,3 +56,11 @@ The [architecture record](docs/decisions/001-payment-access-layer.md) describes 
 5. Set the AG Studio trial or commercial license in `AG_STUDIO_LICENSE` for the hosted demo. AG Studio renders the timeline and disclosure widgets. Its dashboard assistant answers two common questions from the authenticated audit view using a deterministic runner. Codex is the AI agent in the purchase demo.
 
 The hosted configuration is for sandbox transactions. The demo is scoped to one seller and one offer. The script and test suite do not need a Codex subscription, Elastic credentials, or an AG Studio license to exercise the payment flow.
+
+## Tests
+
+`npm test` exercises the MCP boundary, PostgreSQL permissions, duplicate events, and recovery after a lost capture response. It uses simulated PayPal responses. Run `npm run check` for TypeScript and `npm run test:browser` for checkout and the audit dashboard in Chrome. Set `PLAYWRIGHT_CHANNEL=msedge` to use Edge.
+
+## License
+
+Project source is available under the [MIT license](LICENSE). AG Studio and the bundled Geist font retain their own licenses.
