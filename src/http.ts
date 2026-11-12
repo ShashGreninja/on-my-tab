@@ -25,7 +25,7 @@ function appBase() {
   app.disable('x-powered-by');
   app.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');
-    res.set('Referrer-Policy', 'no-referrer');
+    res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('X-Frame-Options', 'DENY');
     next();
@@ -41,10 +41,16 @@ const safeError: ErrorRequestHandler = (error: { status?: number }, _req, res, n
 
 export function createAgentApp(config: {
   store: PaymentStore; approvalOrigin: string; agentKeys: Keys; authenticate?: (token: string) => Promise<string | undefined>;
+  oauth?: { resource: string; issuer: string };
 }) {
   const { store, approvalOrigin } = config;
   const app = appBase();
   app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
+  const metadataPath = '/.well-known/oauth-protected-resource/mcp';
+  if (config.oauth) app.get(metadataPath, (_req, res) => {
+    res.json({ resource: config.oauth!.resource, authorization_servers: [config.oauth!.issuer],
+      scopes_supported: ['purchases:agent'], bearer_methods_supported: ['header'] });
+  });
   app.post('/mcp', express.json({ limit: '32kb' }), async (req, res) => {
     // MCP CLI clients do not send Origin. Block browser origins on this endpoint.
     if (req.headers.origin) { res.sendStatus(403); return; }
@@ -52,7 +58,9 @@ export function createAgentApp(config: {
     const owner = token && ([...config.agentKeys].find(([, key]) => equal(key, token))?.[0]
       ?? await config.authenticate?.(token));
     if (!owner) {
-      res.set('WWW-Authenticate', 'Bearer realm="payment-access"').sendStatus(401);
+      const challenge = config.oauth ? 'Bearer resource_metadata="' + new URL(metadataPath, config.oauth.resource).href + '", scope="purchases:agent"'
+        : 'Bearer realm="payment-access"';
+      res.set('WWW-Authenticate', challenge).sendStatus(401);
       return;
     }
 
@@ -171,7 +179,7 @@ export function createCheckoutApp(config: {
     const purchase = await store.purchase(owner, id.data);
     if (!purchase) { res.sendStatus(404); return; }
     const payment = config.fake ? await store.payment(id.data, owner) : undefined;
-    res.type('html').send(approvalPage(purchase, Boolean(payment?.provider_order_id)));
+    res.type('html').send(approvalPage(purchase, Boolean(payment?.provider_order_id), req.query.checking === '1'));
   });
 
   app.post('/approval/:id/start', async (req, res) => {
@@ -203,7 +211,7 @@ export function createCheckoutApp(config: {
     if (!payment?.provider_order_id || req.query.token !== payment.provider_order_id) { res.sendStatus(404); return; }
     await store.schedule(owner, id.data);
     wake();
-    res.redirect(303, '/approval/' + id.data);
+    res.redirect(303, '/approval/' + id.data + '?checking=1');
   });
 
   if (config.fake) app.post('/approval/:id/simulate', async (req, res) => {
@@ -229,7 +237,7 @@ export function createCheckoutApp(config: {
       const order = kind === 'CHECKOUT.ORDER.APPROVED' ? resource.id
         : kind === 'PAYMENT.CAPTURE.COMPLETED' || kind === 'PAYMENT.CAPTURE.PENDING'
           ? resource.supplementary_data?.related_ids?.order_id : undefined;
-      if (order && await store.webhook(id, order)) wake();
+      if (order && await store.webhook(id, order, kind === 'PAYMENT.CAPTURE.COMPLETED')) wake();
     }
     res.sendStatus(204);
   });

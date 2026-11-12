@@ -23,13 +23,15 @@ const descriptions = {
   needs_review: 'This purchase needs review before credits can be issued.',
 };
 
-export function approvalPage(purchase: Purchase, simulate: boolean) {
-  const action = purchase.status === 'approval_required'
+export function approvalPage(purchase: Purchase, simulate: boolean, checking: boolean) {
+  const verifying = purchase.status === 'processing' || (checking && purchase.status === 'approval_required');
+  const action = verifying ? `<a href="/approval/${purchase.id}?checking=1">Refresh status</a>`
+    : purchase.status === 'approval_required'
     ? `<form method="post" action="/approval/${purchase.id}/${simulate ? 'simulate' : 'start'}">
         <button>${simulate ? 'Simulate buyer approval' : 'Continue to PayPal'}</button></form>`
-    : purchase.status === 'processing' ? `<a href="/approval/${purchase.id}">Refresh status</a>` : '';
+    : '';
   return page(purchase.status === 'credits_available' ? 'Credits available' : 'Review credit top-up',
-    `<p>${descriptions[purchase.status]}</p><dl><div><dt>Demo API credits</dt><dd>${purchase.credits}</dd></div>
+    `<p>${descriptions[verifying ? 'processing' : purchase.status]}</p><dl><div><dt>Demo API credits</dt><dd>${purchase.credits}</dd></div>
     <div><dt>Total</dt><dd>$${formatUsd(purchase.cents)} USD</dd></div></dl>${action}
     <p class="note">Sandbox purchase · Test money only</p>`);
 }

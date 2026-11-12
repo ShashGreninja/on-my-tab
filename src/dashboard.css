@@ -1,0 +1,28 @@
+:root { font-family: 'Segoe UI', system-ui, sans-serif; color: #172b25; background: #eef4ef; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+header { display: flex; justify-content: space-between; padding: 1rem clamp(1rem, 4vw, 3rem); background: #172b25; color: #fff; }
+header a { color: inherit; font-weight: 700; text-decoration: none; }
+header span { color: #d1dfd4; }
+main { max-width: 88rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
+.intro { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+h1 { font-size: clamp(2rem, 4vw, 3.25rem); margin: 0 0 .4rem; line-height: 1; letter-spacing: -.04em; }
+h2 { margin: 0 0 .7rem; font-size: 1.2rem; }
+p { margin: 0; line-height: 1.5; }
+button { padding: .7rem 1rem; background: #245842; color: #fff; border: 0; border-radius: .45rem; cursor: pointer; font: inherit; font-weight: 700; }
+button:focus-visible, select:focus-visible { outline: 3px solid #c58932; outline-offset: 3px; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+.summary div { background: #fff; padding: 1rem; border: 1px solid #c9d9cc; border-radius: .7rem; }
+.summary strong { display: block; margin-top: .3rem; font-size: 1.3rem; }
+.summary small { display: block; margin-top: .25rem; }
+.studio { height: 34rem; background: #fff; border: 1px solid #c9d9cc; border-radius: .7rem; overflow: hidden; }
+.widget { height: 100%; overflow: auto; padding: .9rem; color: #172b25; }
+.timeline, .fields { padding: 0; list-style: none; margin: 0; }
+.timeline li { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: space-between; align-items: center; padding: .65rem 0; border-top: 1px solid #dbe5dc; }
+.timeline small { display: block; color: #4a6458; margin-top: .15rem; }
+.timeline time { font-variant-numeric: tabular-nums; }
+.status { border-radius: 1rem; padding: .2rem .5rem; background: #e4eee6; color: #245842; }
+.widget select { display: block; width: 100%; margin: .4rem 0 .75rem; padding: .35rem; font: inherit; }
+.fields li { margin-bottom: .35rem; }
+.fields code { background: #e4eee6; padding: .1rem .3rem; }
+@media (max-width: 650px) { .studio { height: 38rem; } .widget { padding: .45rem; } }

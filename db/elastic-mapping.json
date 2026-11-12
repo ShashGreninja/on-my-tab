@@ -1,0 +1,12 @@
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "request_id": { "type": "keyword" },
+      "kind": { "type": "keyword" },
+      "status": { "type": "keyword" },
+      "disclosed_fields": { "type": "keyword" },
+      "occurred_at": { "type": "date" }
+    }
+  }
+}
